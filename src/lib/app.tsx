@@ -42,6 +42,30 @@ interface Persisted {
 
 const KEY = "abckids.data.v4"
 
+async function loadFromServer(): Promise<Persisted> {
+  const response = await fetch("/api/data")
+
+  if (!response.ok) {
+    throw new Error("Não foi possível carregar os dados do servidor")
+  }
+
+  return response.json()
+}
+
+async function saveToServer(data: Persisted): Promise<void> {
+  const response = await fetch("/api/data", {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  })
+
+  if (!response.ok) {
+    throw new Error("Não foi possível salvar os dados no servidor")
+  }
+}
+
 function load(): Persisted {
   try {
     const raw = localStorage.getItem(KEY)
@@ -115,7 +139,29 @@ function load(): Persisted {
 const Ctx = createContext<AppCtx | null>(null)
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [store, setStore] = useState<Persisted>(load)
+  const [store, setStore] = useState<Persisted>(() => load())
+
+useEffect(() => {
+  loadFromServer()
+    .then((data) => {
+  setStore(data)
+  setServerLoaded(true)
+})
+    .catch((error) => {
+      console.error("Erro ao carregar dados do servidor:", error)
+    })
+}, [])
+
+  const [serverLoaded, setServerLoaded] = useState(false)
+
+    useEffect(() => {
+    if (!serverLoaded) return
+
+    saveToServer(store).catch((error) => {
+      console.error("Erro ao salvar dados no servidor:", error)
+    })
+  }, [store, serverLoaded])
+
   const [currentId, setCurrentId] = useState<string | null>(null)
   const [activeTeacherId, setActiveTeacherId] = useState<string | null>(null)
 
